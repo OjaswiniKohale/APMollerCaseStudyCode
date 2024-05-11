@@ -31,15 +31,15 @@ profitability = profitability.sort_values(by='Profit', ascending=False)
 # Display the top 5 profitable product and customer segment combinations
 top_profitable_combinations = profitability.head(5)
 
-# Define colors for bars
-colors = ['skyblue', 'lightgreen', 'lightcoral', 'orange', 'lightpink']
+# Define a new color palette
+colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']  # Example colors
 
-# Plotting the top profitable combinations with colorful bars
+# Plotting the top profitable combinations with colorful bars using the new color palette
 plt.figure(figsize=(12, 8))
 top_profitable_combinations['Profit'].plot(kind='bar', color=colors)
 plt.title('Top 5 Profitable Product and Customer Segment Combinations')
 plt.xlabel('Product and Customer Segment')
-plt.ylabel('Profit (Thousands $)')
+plt.ylabel('Profit')
 plt.xticks(rotation=45, ha='right')
 plt.tight_layout()
 plt.show()
