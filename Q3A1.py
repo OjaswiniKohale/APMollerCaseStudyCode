@@ -1,48 +1,55 @@
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
-from statsmodels.tsa.api import ExponentialSmoothing
+from statsmodels.tsa.statespace.sarimax import SARIMAX
+from sklearn.metrics import mean_absolute_percentage_error
 
-# Load and preprocess your dataset (replace 'path_to_your_data.csv' with the actual file path)
-file_path = 'Case_Study_Business Analytics.xlsx - Data Set.csv'
-df = pd.read_csv(file_path)
+# Load the data from CSV file
+data = pd.read_csv("Case_Study_Business Analytics.xlsx - Data Set.csv")
 
-# Convert 'Total Sales' column to numeric
-df['Total Sales'] = pd.to_numeric(df['Total Sales'], errors='coerce')
+# Pre-processing: Drop any rows with missing or inconsistent data
+data.dropna(inplace=True)
 
-# Drop rows with missing values in 'Total Sales' and 'Country' columns
-df.dropna(subset=['Total Sales', 'Country'], inplace=True)
+# Clean 'Cost per Unit' column by removing commas and converting to numeric
+data['Cost per Unit'] = pd.to_numeric(data['Cost per Unit'].str.replace(',', ''), errors='coerce')
 
-# Aggregate data by country to calculate total revenue
-country_summary = df.groupby('Country')['Total Sales'].sum().reset_index()
+# Clean 'Units Sold' column by removing commas and converting to numeric
+data['Units Sold'] = pd.to_numeric(data['Units Sold'].str.replace(',', ''), errors='coerce')
 
-# Filter countries with sufficient data points for forecasting (e.g., at least 12 months of data)
-valid_countries = country_summary[country_summary['Total Sales'].notna() & (country_summary['Total Sales'].count() >= 12)]['Country']
+# Clean 'Total Sales' column by removing commas and converting to numeric
+data['Total Sales'] = pd.to_numeric(data['Total Sales'].str.replace(',', ''), errors='coerce')
 
-# Select a subset of countries with adequate data for revenue forecasting
-forecast_countries = valid_countries.head(5)  # Adjust the number of forecasted countries as needed
+# Drop rows with missing or inconsistent cost per unit, units sold, and total sales values
+data.dropna(subset=['Cost per Unit', 'Units Sold', 'Total Sales'], inplace=True)
 
-# Plot Current and Enhanced Forecasted Revenue for selected countries
+# Calculate Total Sales by Customer Segment
+customer_segment_sales = data.groupby('Customer Segment')['Total Sales'].sum()
+
+# Fit SARIMA model
+order = (6, 0, 6)  # ARIMA order
+seasonal_order = (1, 2, 1, 7)  # Seasonal order
+model = SARIMAX(customer_segment_sales, order=order, seasonal_order=seasonal_order, exog=None)
+model_fit = model.fit()
+
+# Forecast future sales
+future_customer_segments = np.array(['CS1', 'CS2', 'CS3', 'CS4', 'CS5', 'CS6', 'CS7', 'CS8']).reshape(-1, 1)
+future_sales = model_fit.forecast(steps=len(future_customer_segments))
+
+# Calculate MAPE
+actual_sales = np.array(customer_segment_sales)
+mape = mean_absolute_percentage_error(actual_sales, future_sales)
+
+# Print MAPE
+print("Mean Absolute Percentage Error (MAPE):", mape)
+
+# Plotting the before and after scenario
 plt.figure(figsize=(12, 8))
-
-for country in forecast_countries:
-    country_data = df[df['Country'] == country]['Total Sales']
-    
-    if len(country_data) >= 12:  # Minimum 12 months of data for forecasting
-        # Moving Average (MA) Forecast
-        ma_forecast = country_data.rolling(window=12).mean().iloc[-1]
-        
-        # Growth Assumption (e.g., 5% annual growth rate)
-        growth_rate = 1.02
-        forecast_values = [ma_forecast * (growth_rate ** i) for i in range(1, 13)]  # Forecasting next 12 months
-        
-        # Plot Current Revenue and Enhanced Forecasted Revenue
-        plt.plot(range(len(country_data)), country_data.values, label=f'Current Revenue ({country})', marker='o', linestyle='-')
-        plt.plot(range(len(country_data), len(country_data) + 12), forecast_values, label=f'Enhanced Forecasted Revenue ({country})', marker='o', linestyle='--')
-
-plt.title('Current and Enhanced Forecasted Revenue by Country')
-plt.xlabel('Months')
-plt.ylabel('Total Sales ($)')
+plt.bar(customer_segment_sales.index, customer_segment_sales, color='skyblue', label='Before')
+plt.bar(future_customer_segments.flatten(), future_sales, color='peachpuff', alpha=0.5, label='After (Forecast)')
+plt.title('Customer Segment Preferences')
+plt.xlabel('Customer Segment')
+plt.ylabel('Total Sales')
+plt.xticks(rotation=45, ha='right')
 plt.legend()
-plt.grid(True)
 plt.tight_layout()
 plt.show()
